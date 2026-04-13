@@ -1,4 +1,6 @@
-# Model Card: Music Recommender Simulation
+# Model Card: VibeFinder 1.0
+
+---
 
 ## 1. Model Name
 
@@ -6,173 +8,138 @@
 
 ---
 
-## 2. Intended Use
+## 2. Goal / Task
 
-VibeFinder suggests up to five songs from a 20-song catalog based on a
-listener's preferred genre, mood, energy level, and texture preference
-(acoustic vs. electronic). It is built for classroom exploration only — not
-for real users — and is meant to illustrate how a content-based recommender
-turns song attributes into a ranked list.
-
-The system assumes the user can describe their taste with a single genre label
-and a single mood label. It does not learn from listening history, skips, or
-any real user behavior.
+VibeFinder picks the top 5 songs from a catalog that best match a listener's taste.
+It is a content-based recommender — it compares song attributes to user preferences.
+It does not learn from behavior. It just scores and ranks.
 
 ---
 
-## 3. How the Model Works
+## 3. Data Used
 
-Every song in the catalog gets a numeric score from 0 to 4.5 points. Points
-come from four sources:
-
-- **Genre** (up to 2.0 pts): If the song's genre exactly matches the user's
-  preferred genre, it earns the full 2.0 points. If not, it earns zero.
-- **Mood** (up to 1.0 pt): Same all-or-nothing rule for mood.
-- **Energy closeness** (up to 1.0 pt): The closer the song's energy level is
-  to the user's target, the more points it earns. A perfect match gives 1.0;
-  a song at the opposite extreme of the scale gives 0.0. Songs in between earn
-  partial credit.
-- **Acoustic texture** (up to 0.5 pts): If the user likes acoustic music, songs
-  with high acousticness earn more points; if the user prefers electronic sound,
-  songs with low acousticness earn more.
-
-After every song is scored, they are sorted from highest to lowest and the top
-five are returned. Songs that match on genre and mood can earn up to 3.0 of the
-4.5 possible points before energy or texture are even considered.
+- **Size:** 20 songs in `data/songs.csv`
+- **Features used in scoring:** genre, mood, energy (0–1), acousticness (0–1)
+- **Features stored but not scored:** tempo BPM, valence, danceability
+- **Genres covered:** pop, lofi, rock, ambient, jazz, synthwave, indie pop, hip-hop,
+  r&b, classical, metal, folk, electronic, soul, reggae, blues, country
+- **Limits:** The catalog only represents Western popular music. Genres like
+  Afrobeats, cumbia, or K-pop are missing. Most genres have only one song, so
+  variety is very limited.
 
 ---
 
-## 4. Data
+## 4. Algorithm Summary
 
-The catalog contains 20 songs stored in `data/songs.csv`. Each song has ten
-attributes: title, artist, genre, mood, energy (0–1), tempo in BPM, valence
-(emotional brightness, 0–1), danceability (0–1), and acousticness (0–1).
+Every song gets a score out of 4.5 points. Higher score = better match.
 
-The catalog covers 17 genres — pop, lofi, rock, ambient, jazz, synthwave,
-indie pop, hip-hop, r&b, classical, metal, folk, electronic, soul, reggae,
-blues, and country — and 15 moods. The original starter file had 10 songs; 10
-more were added to improve coverage.
+| Signal | Max points | Rule |
+|---|---|---|
+| Genre match | 2.0 | Full points if genre matches exactly. Zero if not. |
+| Mood match | 1.0 | Full points if mood matches exactly. Zero if not. |
+| Energy closeness | 1.0 | Closer to the user's target = more points. Partial credit allowed. |
+| Acoustic texture | 0.5 | High acousticness earns more if the user likes acoustic sound. |
 
-The dataset reflects common Western popular music. Genres like Afrobeats, K-pop,
-cumbia, or classical Indian music are absent, so the system would be unhelpful
-to listeners whose taste falls outside this cultural frame.
-
----
-
-## 5. Strengths
-
-- **Transparent scoring.** Every recommendation comes with a plain-English
-  explanation ("genre match (+2.0); energy proximity (+0.97)") so a user can
-  understand exactly why a song was chosen.
-- **Strong separation for clear-cut profiles.** For the "Chill Lofi" profile,
-  the top two results (Library Rain, Midnight Coding) both score above 4.3 out
-  of 4.5 — a convincing match. For "Deep Intense Rock," Storm Runner scores
-  4.440, leaving the runner-up more than 2 points behind.
-- **Partial credit for near-misses.** The proximity formula means a song that
-  is slightly off on energy still earns something, rather than being zeroed out
-  by a hard cutoff.
+After every song is scored, the list is sorted highest to lowest. The top 5 are returned.
+Genre and mood are worth 3.0 points combined — most of the score is decided before energy even matters.
 
 ---
 
-## 6. Limitations and Bias
+## 5. Observed Behavior / Biases
 
-**Genre over-dominates.** Genre is worth 2.0 out of 4.5 possible points —
-44% of the maximum. Any song outside the user's preferred genre is permanently
-capped at 2.5 points no matter how well it matches on every other dimension. A
-weight-shift experiment (genre 2.0 → 1.0, energy max 1.0 → 2.0) showed that
-Spacewalk Thoughts (ambient, chill) jumped from 2.36 to 3.26 for the Chill Lofi
-profile — a song most listeners would consider a reasonable recommendation that
-the original weights buried.
+**Genre dominates.** Any song outside the user's genre is capped at 2.5 points max.
+A perfect energy and mood match in the wrong genre will almost always lose to a mediocre same-genre song.
+In experiments, halving the genre weight (2.0 → 1.0) moved better-fitting songs from other genres into the top 5.
 
-**Mood and genre use exact string matching.** "relaxed" and "chill" are scored
-as completely different moods. "indie pop" and "pop" are scored as completely
-different genres. Real listeners treat these as near-synonyms, but the system
-cannot. Coffee Shop Stories (jazz, relaxed) loses its full mood bonus even
-though a chill-lofi fan would very likely enjoy it.
+**Exact string matching ignores synonyms.** The mood "relaxed" is treated as completely different from "chill."
+The genre "indie pop" gets zero overlap credit with "pop."
+Real listeners hear these as nearly the same thing. The system does not.
 
-**Valence and tempo are invisible.** The system cannot tell the difference
-between a slow, dark blues ballad and a slow acoustic folk song because it does
-not use valence or tempo in scoring. A user asking for "chill" music almost
-certainly wants positive or neutral emotional tone, but the system has no way
-to enforce that.
+**Conflicting preferences produce averaged-out results.** A user who asked for high energy AND sad mood got a confusing list.
+The system cannot resolve a contradiction — it just adds the points.
+3AM Diner (blues/sad) ranked #1 on genre, but high-energy songs with no mood match filled spots 3–5.
 
-**Filter bubble risk.** For profiles where even one song has a genre+mood match
-(3.0 pts), the remaining catalog is essentially unreachable. The top of the list
-is always dominated by the handful of songs that share the user's genre, and the
-system has no diversity mechanism to surface anything unexpected.
+**Invisible features.** Valence and tempo are never scored.
+A dark blues ballad and a bright folk song can score identically.
+A user who wants "chill" music probably does not want low-valence sadness, but the system cannot tell the difference.
 
-**Tiny catalog.** With only 20 songs, several genres have only one
-representative. A "blues" listener gets 3AM Diner at the top and then a list of
-songs that do not match at all, because there is no second blues song to compete.
+**Tiny catalog creates false defaults.** Several genres have only one song.
+A blues listener gets that one song at #1 and then a random pile of mismatches below it.
+That is not a real recommendation — it is just the only option.
 
 ---
 
-## 7. Evaluation
+## 6. Evaluation Process
 
-**Profiles tested:** High-Energy Pop, Chill Lofi, Deep Intense Rock, and two
-adversarial edge cases (High-Energy + Sad Mood; Max Energy + Loves Acoustic).
+**Five profiles were tested:**
 
-**What the results showed:**
+1. **High-Energy Pop** (genre=pop, mood=happy, energy=0.90) — Sunrise City ranked #1 at 4.33 pts. Felt right. Gym Hero ranked #2 despite being "intense" not "happy" — only because its energy was close.
+2. **Chill Lofi** (genre=lofi, mood=chill, energy=0.38) — Library Rain and Midnight Coding topped the list with scores above 4.3. The most convincing result.
+3. **Deep Intense Rock** (genre=rock, mood=intense, energy=0.92) — Storm Runner ranked #1 correctly. But spots 3–5 were electronic and hip-hop songs whose only connection to rock was a similar energy level.
+4. **Adversarial: High-Energy + Sad Mood** — Exposed that conflicting preferences produce unreliable results. The genre bonus decided #1; energy alone filled the rest.
+5. **Adversarial: Max Energy + Loves Acoustic** — Showed that acoustic and high-energy preferences fight each other. Acoustic songs are almost always low energy, so no song could score well on both.
 
-- **Chill Lofi** produced the most convincing top-2 (Library Rain 4.400,
-  Midnight Coding 4.315). Both songs are lofi/chill with energy near 0.38 and
-  moderate-to-high acousticness — exactly the profile target. This felt right.
-- **Deep Intense Rock** surfaced Storm Runner at the top (4.440), which is
-  correct, but positions 3–5 were filled by electronic, metal, and hip-hop songs
-  — not because they are similar to rock, but purely because their energy
-  happened to be close to 0.92. This revealed that energy similarity alone does
-  not capture "rock feel."
-- **Adversarial: High-Energy + Sad Mood** exposed a contradiction: the catalog's
-  only blues song (3AM Diner) won the genre match bonus but scored poorly on
-  energy (0.53 pts), while purely high-energy songs with no mood match climbed
-  to positions 3–5. The system could not resolve the conflict — it just averaged
-  it out.
-- **Adversarial: Max Energy + Loves Acoustic** showed that the two continuous
-  features work against each other. Acoustic songs tend to be low-energy, so
-  asking for energy=1.0 and likes_acoustic=True produced low scores across the
-  board, with Porch Light Lullaby (folk/nostalgic) winning on genre+mood alone
-  despite an energy proximity of only 0.30.
-
-**Weight-shift experiment:** Halving the genre weight (2.0 → 1.0) and doubling
-the energy weight (max 1.0 → 2.0) kept the #1 result the same for all three
-standard profiles but meaningfully reshuffled positions 3–5. Songs that were
-acoustically and energetically similar but belonged to a different genre moved
-up — suggesting the original weights may be overly genre-centric for listeners
-with broad taste.
+**Weight-shift experiment:** Genre weight was cut from 2.0 to 1.0, and energy max was raised from 1.0 to 2.0.
+The #1 result stayed the same for all three standard profiles.
+Spots 3–5 shifted toward energetically similar songs from nearby genres — which felt more musically honest.
 
 ---
 
-## 8. Future Work
+## 7. Intended Use and Non-Intended Use
 
-- **Fuzzy genre/mood matching.** A small similarity table (e.g., "lofi" is 0.7
-  similar to "ambient", "chill" is 0.8 similar to "relaxed") would replace the
-  binary match and fix the exact-string problem.
-- **Add valence and tempo to scoring.** Even a small weight on valence would
-  prevent a sad blues track from ranking well for a happy-mood listener.
-- **Diversity re-ranking.** After scoring, apply a penalty if a genre is already
-  represented in the top-k results, so the list surfaces at least two or three
-  different sonic worlds.
-- **Larger, more balanced catalog.** Twenty songs is enough to illustrate the
-  algorithm but too small for meaningful variety. A 200-song catalog with at
-  least 10 songs per genre would make the ranking far more interesting.
-- **User feedback loop.** Let the user mark recommendations as "liked" or
-  "skipped" and adjust the genre/mood weights over time.
+**Intended use:**
+- A classroom demo of how content-based filtering works
+- Learning how point-based scoring translates song attributes into a ranked list
+- Exploring how weight choices affect recommendations
+
+**Not intended for:**
+- Real music discovery for actual users
+- Any production or commercial application
+- Users whose taste falls outside Western popular music genres
+- Making decisions about what music is "good" or "popular"
+
+---
+
+## 8. Ideas for Improvement
+
+1. **Add fuzzy matching for genre and mood.**
+   Build a small similarity table so "lofi" gives partial credit toward "ambient,"
+   and "chill" gives partial credit toward "relaxed."
+   This would fix the biggest unfairness in the current system.
+
+2. **Score valence and tempo.**
+   Even a small weight on valence would stop dark or angry songs from ranking
+   well for a user who asked for something happy or calm.
+
+3. **Add a diversity rule.**
+   After scoring, penalize any genre that already appears in the top results.
+   This would prevent the top 5 from being all the same genre every time.
 
 ---
 
 ## 9. Personal Reflection
 
-Building this system made clear how much work a genre label is doing quietly in
-the background. Assigning 2.0 points to genre match — nearly half the possible
-score — essentially pre-sorts the entire catalog before energy or mood even
-matter. That felt natural at first because genre really does define a lot about a
-song, but the experiments showed it can lock users into a narrow slice of the
-catalog even when musically adjacent songs exist.
+**Biggest learning moment:**
+I assumed genre was obviously the most important signal — so I gave it 2.0 points.
+That felt right until I ran the weight-shift experiment.
+When I cut genre to 1.0, songs that were acoustically and energetically similar — but in a different genre — moved up.
+Those songs often felt *more* correct to me as a listener.
+The biggest learning was that the weight I was most confident about was also the one creating the most bias.
 
-The adversarial profiles were the most revealing part. A "high-energy + sad
-mood" listener exposed that the scoring formula has no way to prioritize one
-signal over another when they conflict — it just adds the numbers. Real
-recommender systems probably handle this with learned weights or by treating
-mood and energy as a joint embedding rather than two independent additive terms.
-That gap between a simple additive recipe and a learned model became very
-concrete through these tests.
+**How AI tools helped — and when I had to double-check:**
+AI tools helped me write cleaner code faster and suggested the list comprehension version of `recommend_songs`.
+But I had to verify all the score math manually.
+When I asked for the weight-shift experiment, the suggestion was right in structure but I ran the numbers myself to confirm the rankings actually changed the way I expected.
+AI tools are good at drafting — they still need a human to check if the output makes sense.
+
+**What surprised me about simple algorithms:**
+The output really did *feel* like a recommendation, even though the logic is just addition.
+Library Rain and Midnight Coding rising to the top of the Chill Lofi list felt natural — those are genuinely good matches.
+What surprised me is that the illusion breaks immediately at the edge cases.
+As soon as preferences conflicted or the catalog ran out of options, the numbers stopped making sense musically.
+Simple math can feel intelligent inside its comfort zone. Outside it, the seams show fast.
+
+**What I would try next:**
+I would add valence to the scoring formula and test whether it fixes the adversarial sad/high-energy profile.
+I would also build a fuzzy genre/mood similarity table — even a hand-coded one with five categories — to see how much it improves recommendations for listeners who cross genre lines.
+If I had more time, I would replace the fixed weights entirely with a small set of user ratings and let the system learn its own weights from feedback.
