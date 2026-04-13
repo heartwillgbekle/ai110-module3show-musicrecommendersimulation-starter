@@ -47,17 +47,21 @@ class Recommender:
 
 def load_songs(csv_path: str) -> List[Dict]:
     """
-    Loads songs from a CSV file.
+    Loads songs from a CSV file and returns a list of dictionaries.
+    Numeric columns are cast to float or int so math can be done on them.
     Required by src/main.py
     """
     import csv
     songs = []
     with open(csv_path, newline="") as f:
         for row in csv.DictReader(f):
-            # Cast numeric columns from string to float
-            for col in ("energy", "tempo_bpm", "valence", "danceability", "acousticness"):
-                row[col] = float(row[col])
-            row["id"] = int(row["id"])
+            # Cast numeric columns so they are usable in scoring formulas
+            row["id"]           = int(row["id"])
+            row["energy"]       = float(row["energy"])
+            row["tempo_bpm"]    = float(row["tempo_bpm"])
+            row["valence"]      = float(row["valence"])
+            row["danceability"] = float(row["danceability"])
+            row["acousticness"] = float(row["acousticness"])
             songs.append(row)
     return songs
 
@@ -90,32 +94,27 @@ def score_song(user_prefs: Dict, song: Dict) -> Tuple[float, List[str]]:
     # ── +2.0  genre match ─────────────────────────────────────────────────
     if song["genre"] == user_prefs["genre"]:
         score += 2.0
-        reasons.append(f"+2.0 genre '{song['genre']}' matches")
+        reasons.append("genre match (+2.0)")
+    else:
+        reasons.append(f"genre mismatch: '{song['genre']}' ≠ '{user_prefs['genre']}' (+0.0)")
 
     # ── +1.0  mood match ──────────────────────────────────────────────────
     if song["mood"] == user_prefs["mood"]:
         score += 1.0
-        reasons.append(f"+1.0 mood '{song['mood']}' matches")
+        reasons.append("mood match (+1.0)")
+    else:
+        reasons.append(f"mood mismatch: '{song['mood']}' ≠ '{user_prefs['mood']}' (+0.0)")
 
     # ── +1.0  energy proximity ────────────────────────────────────────────
     energy_pts = (1.0 - abs(song["energy"] - user_prefs["energy"])) * 1.0
     score += energy_pts
-    if energy_pts >= 0.85:
-        reasons.append(f"+{energy_pts:.2f} energy {song['energy']} ≈ target {user_prefs['energy']}")
-    elif energy_pts < 0.55:
-        reasons.append(f"+{energy_pts:.2f} energy {song['energy']} far from target {user_prefs['energy']}")
-    else:
-        reasons.append(f"+{energy_pts:.2f} energy proximity")
+    reasons.append(f"energy proximity (+{energy_pts:.2f})")
 
     # ── +0.5  acoustic proximity ──────────────────────────────────────────
-    target_ac   = 1.0 if user_prefs["likes_acoustic"] else 0.0
+    target_ac    = 1.0 if user_prefs["likes_acoustic"] else 0.0
     acoustic_pts = (1.0 - abs(song["acousticness"] - target_ac)) * 0.5
     score += acoustic_pts
-    if acoustic_pts >= 0.40:
-        reasons.append(
-            f"+{acoustic_pts:.2f} acousticness fits your "
-            f"{'acoustic' if user_prefs['likes_acoustic'] else 'electronic'} preference"
-        )
+    reasons.append(f"acousticness proximity (+{acoustic_pts:.2f})")
 
     return round(score, 3), reasons
 

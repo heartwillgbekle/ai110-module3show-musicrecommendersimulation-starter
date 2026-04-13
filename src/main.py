@@ -14,6 +14,7 @@ from recommender import load_songs, recommend_songs
 
 def main() -> None:
     songs = load_songs("data/songs.csv")
+    print(f"Loaded songs: {len(songs)}")
 
     # ── USER PROFILE ──────────────────────────────────────────────────────────
     # This taste profile represents a listener who wants quiet, acoustic,
