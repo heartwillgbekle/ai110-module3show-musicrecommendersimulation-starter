@@ -82,15 +82,7 @@ ranked list (`recommend_songs`) can be done independently.
 
 #### Example Output
 
-With the lofi/chill profile above, the top 5 from the 20-song catalog are:
-
-```
-1. Library Rain       — 4.400 pts  (+2.0 genre, +1.0 mood, +0.97 energy, +0.43 acoustic)
-2. Midnight Coding    — 4.315 pts  (+2.0 genre, +1.0 mood, +0.96 energy)
-3. Focus Flow         — 3.370 pts  (+2.0 genre, +0.98 energy)
-4. Spacewalk Thoughts — 2.360 pts  (+1.0 mood,  +0.90 energy, +0.46 acoustic)
-5. Coffee Shop Stories — 1.435 pts (+0.99 energy, +0.45 acoustic)
-```
+![Terminal output showing top-5 pop/happy recommendations](docs/screenshot.png)
 
 See [docs/recommendation_flow.md](docs/recommendation_flow.md) for a full
 Mermaid.js flowchart of the data flow from CSV to ranked output.
