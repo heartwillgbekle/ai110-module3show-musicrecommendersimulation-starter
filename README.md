@@ -2,32 +2,126 @@
 
 ## Project Summary
 
-In this project you will build and explain a small music recommender system.
+This project builds a content-based music recommender simulation in Python.
+It scores each song in a 20-song catalog against a user taste profile using
+a point-based recipe, then returns the top-K ranked matches with plain-language
+explanations.
 
-Your goal is to:
-
-- Represent songs and a user "taste profile" as data
-- Design a scoring rule that turns that data into recommendations
-- Evaluate what your system gets right and wrong
-- Reflect on how this mirrors real world AI recommenders
-
-Replace this paragraph with your own summary of what your version does.
+The system uses four features per song — genre, mood, energy, and acousticness —
+weighted so that genre and mood matches earn binary bonuses while energy and
+acousticness proximity earn graduated partial credit. The result is a transparent,
+explainable recommender that mirrors the content-based layer used inside real
+platforms like Spotify's Daily Mix.
 
 ---
 
 ## How The System Works
 
-Explain your design in plain language.
+### Song Features
 
-Some prompts to answer:
+Each song in `data/songs.csv` carries ten attributes. The recommender uses four
+of them directly in scoring:
 
-- What features does each `Song` use in your system
-  - For example: genre, mood, energy, tempo
-- What information does your `UserProfile` store
-- How does your `Recommender` compute a score for each song
-- How do you choose which songs to recommend
+| Feature | Type | Role in scoring |
+|---|---|---|
+| `genre` | string | Binary match — the single heaviest signal |
+| `mood` | string | Binary match — second heaviest signal |
+| `energy` | float 0–1 | Proximity score — rewards closeness to user target |
+| `acousticness` | float 0–1 | Proximity score — rewards texture preference match |
 
-You can include a simple diagram or bullet list if helpful.
+The remaining columns (`tempo_bpm`, `valence`, `danceability`) are stored but
+not yet weighted. They represent room for future improvement.
+
+### User Profile
+
+The taste profile is a Python dictionary with four keys:
+
+```python
+user_prefs = {
+    "genre":          "lofi",     # preferred genre label
+    "mood":           "chill",    # preferred mood label
+    "energy":         0.38,       # target energy level (0.0 = very calm, 1.0 = very intense)
+    "likes_acoustic": True,       # True = rewards high acousticness, False = rewards low
+}
+```
+
+### Algorithm Recipe
+
+The recommender uses a two-step process — a **Scoring Rule** and a **Ranking Rule**.
+
+#### Scoring Rule — `score_song(user_prefs, song)`
+
+Every song is scored independently against the user profile. Points are additive;
+maximum possible score is **4.5**.
+
+```
++2.0   genre match        binary: full points if song.genre == user.genre
++1.0   mood match         binary: full points if song.mood  == user.mood
++1.0   energy proximity   (1 − |song.energy − user.energy|) × 1.0
++0.5   acoustic proximity (1 − |song.acousticness − target_ac|) × 0.5
+                          where target_ac = 1.0 if likes_acoustic else 0.0
+──────
+ 4.5   maximum
+```
+
+The proximity formula rewards songs that are *close* to the user's target rather
+than simply above or below a threshold. A song at energy 0.70 still earns partial
+credit toward a target of 0.38 — it is not zeroed out.
+
+#### Ranking Rule — `recommend_songs(user_prefs, songs, k=5)`
+
+```
+1. Call score_song() for every song in the catalog
+2. Sort all (song, score, explanation) results by score, highest first
+3. Return the top k results
+```
+
+The Scoring Rule and Ranking Rule are kept as separate functions so that
+explaining a single recommendation (`score_song` alone) and producing a full
+ranked list (`recommend_songs`) can be done independently.
+
+#### Example Output
+
+With the lofi/chill profile above, the top 5 from the 20-song catalog are:
+
+```
+1. Library Rain       — 4.400 pts  (+2.0 genre, +1.0 mood, +0.97 energy, +0.43 acoustic)
+2. Midnight Coding    — 4.315 pts  (+2.0 genre, +1.0 mood, +0.96 energy)
+3. Focus Flow         — 3.370 pts  (+2.0 genre, +0.98 energy)
+4. Spacewalk Thoughts — 2.360 pts  (+1.0 mood,  +0.90 energy, +0.46 acoustic)
+5. Coffee Shop Stories — 1.435 pts (+0.99 energy, +0.45 acoustic)
+```
+
+See [docs/recommendation_flow.md](docs/recommendation_flow.md) for a full
+Mermaid.js flowchart of the data flow from CSV to ranked output.
+
+### Potential Biases
+
+**Genre over-dominates the score.**
+A genre match awards 2.0 out of 4.5 possible points — 44% of the maximum.
+This means any non-lofi song is permanently capped at 2.5 pts no matter how
+perfectly it matches on mood, energy, and acousticness. A jazz song at identical
+energy and acousticness to the user target will always rank below a lofi song with
+a mediocre energy match. Real listeners who enjoy chill jazz as much as chill lofi
+would find this unfair.
+
+**Mood is an exact string match.**
+`"relaxed"` and `"chill"` are treated as completely different even though most
+listeners experience them as nearly identical. Coffee Shop Stories (jazz, relaxed)
+loses the full 1.0 mood bonus despite being exactly the kind of song a chill-lofi
+fan typically enjoys.
+
+**Valence and tempo are invisible.**
+A slow, dark blues track (low valence, low BPM) and an upbeat acoustic folk song
+can score identically because the system has no way to distinguish emotional
+brightness. A user who asks for "chill" music likely wants moderate-to-positive
+valence — but the system cannot enforce that.
+
+**The catalog reflects one cultural perspective.**
+The 20-song dataset was generated to cover common Western genres. Genres like
+Afrobeats, cumbia, or classical Indian music are absent. A recommender trained or
+evaluated on this catalog would implicitly treat those listening tastes as
+out-of-scope.
 
 ---
 
