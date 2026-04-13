@@ -1,10 +1,10 @@
-# Model Card: VibeFinder 1.0
+# Model Card: SoundScout 1.0
 
 ---
 
 ## 1. Model Name
 
-**VibeFinder 1.0**
+**SoundScout 1.0**
 
 ---
 
