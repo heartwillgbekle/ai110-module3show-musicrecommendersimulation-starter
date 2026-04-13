@@ -11,39 +11,41 @@ You will implement the functions in recommender.py:
 
 from recommender import load_songs, recommend_songs
 
+WIDTH = 60
+
 
 def main() -> None:
+    """Load the catalog, run the recommender, and print a formatted top-k list."""
     songs = load_songs("data/songs.csv")
     print(f"Loaded songs: {len(songs)}")
 
     # ── USER PROFILE ──────────────────────────────────────────────────────────
-    # This taste profile represents a listener who wants quiet, acoustic,
-    # low-energy background music for studying or winding down.
-    #
-    # Design decisions:
-    #   genre="lofi"        → targets the lofi cluster in the catalog
-    #   mood="chill"        → rewards calm, relaxed-feeling songs
-    #   energy=0.38         → close to the lofi average in songs.csv (0.35–0.42)
-    #   likes_acoustic=True → penalizes electronic/produced sound (acousticness→1.0)
-    #
-    # Critique question: Does this profile clearly separate "intense rock" from
-    # "chill lofi", or is it too narrow to be useful across the full 20-song catalog?
-    # See src/profile_critique.py for the full scored breakdown.
+    # pop/happy listener who wants upbeat, non-acoustic energy
     user_prefs = {
-        "genre":          "lofi",
-        "mood":           "chill",
-        "energy":         0.38,
-        "likes_acoustic": True,
+        "genre":          "pop",
+        "mood":           "happy",
+        "energy":         0.80,
+        "likes_acoustic": False,
     }
     # ─────────────────────────────────────────────────────────────────────────
 
     recommendations = recommend_songs(user_prefs, songs, k=5)
 
-    print("\nTop recommendations:\n")
-    for song, score, explanation in recommendations:
-        print(f"{song['title']} by {song['artist']}  —  Score: {score:.3f}")
-        print(f"  Why: {explanation}")
-        print()
+    print()
+    print("─" * WIDTH)
+    print(f"  Top {len(recommendations)} recommendations")
+    print(f"  Profile: genre={user_prefs['genre']} | mood={user_prefs['mood']} "
+          f"| energy={user_prefs['energy']} | acoustic={user_prefs['likes_acoustic']}")
+    print("─" * WIDTH)
+
+    for rank, (song, score, explanation) in enumerate(recommendations, start=1):
+        print(f"\n  #{rank}  {song['title']} — {song['artist']}")
+        print(f"       Score : {score:.3f} / 4.5")
+        for reason in explanation.split("; "):
+            print(f"       • {reason}")
+
+    print()
+    print("─" * WIDTH)
 
 
 if __name__ == "__main__":

@@ -120,20 +120,21 @@ def score_song(user_prefs: Dict, song: Dict) -> Tuple[float, List[str]]:
 
 
 def recommend_songs(user_prefs: Dict, songs: List[Dict], k: int = 5) -> List[Tuple[Dict, float, str]]:
-    """
-    Functional implementation of the recommendation logic.
-    Required by src/main.py
+    """Score every song against user_prefs and return the top k sorted highest-first.
+
+    Uses sorted() (returns a new list) rather than .sort() (mutates in place) so
+    the original catalog order is preserved and callers can safely call this
+    function multiple times with different profiles without side-effects.
 
     Scoring Rule  — scores every song individually via score_song()
     Ranking Rule  — sorts all scored songs and returns the top k
     """
-    # SCORING PHASE: evaluate every song independently
-    scored = []
-    for song in songs:
-        score, reasons = score_song(user_prefs, song)
-        explanation = "; ".join(reasons)
-        scored.append((song, score, explanation))
+    # SCORING PHASE: build (song, score, explanation) for every song
+    scored = [
+        (song, score, "; ".join(reasons))
+        for song in songs
+        for score, reasons in [score_song(user_prefs, song)]
+    ]
 
-    # RANKING PHASE: sort by score descending, return top k
-    scored.sort(key=lambda item: item[1], reverse=True)
-    return scored[:k]
+    # RANKING PHASE: sorted() returns a new list — original catalog is untouched
+    return sorted(scored, key=lambda item: item[1], reverse=True)[:k]
